@@ -1,4 +1,4 @@
-# Codex Companion
+# Codex Notes Companion
 
 Chat with Codex beside your Obsidian notes. Attach the current note or selected text, paste images, invoke installed Codex skills, and keep intermediate progress separate from the final answer.
 
@@ -29,7 +29,7 @@ Until the plugin is approved in the community directory, install manually:
 1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/chen-zhuofu/codex-companion/releases/latest).
 2. Put those three files in `<vault>/.obsidian/plugins/codex-companion/`.
 3. In Obsidian, enable the plugin under **Settings → Community plugins**.
-4. Under **Settings → Codex Companion**, set the Codex executable. The default is `codex`; if Obsidian cannot find it, enter its absolute path (`which codex` on macOS/Linux).
+4. Under **Settings → Codex Notes Companion**, set the Codex executable. The default is `codex`; if Obsidian cannot find it, enter its absolute path (`which codex` on macOS/Linux).
 5. Select **连接 Codex** to connect, then use the ribbon icon or `Cmd/Ctrl+L`.
 
 ## Use

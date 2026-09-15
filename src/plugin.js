@@ -81,7 +81,7 @@ var Companion = class extends Plugin {
     this.modals = /* @__PURE__ */ new Set();
     this.saveQueue = Promise.resolve();
     this.registerView(TYPE, (leaf) => new CompanionView(leaf, this));
-    this.addRibbonIcon("message-square", "Codex Companion \xB7 ⌘L", () => this.open(true));
+    this.addRibbonIcon("message-square", "Codex Notes Companion \xB7 ⌘L", () => this.open(true));
     this.addCommand({ id: "focus-chat", name: "聚焦对话 / 添加选区", hotkeys: [{ modifiers: ["Mod"], key: "l" }], callback: () => this.open(true) });
     this.addCommand({ id: "new-chat", name: "新建对话", callback: () => this.openNew() });
     this.addCommand({ id: "new-window", name: "在独立窗口新建对话", callback: () => this.openNew(true) });
@@ -806,7 +806,7 @@ var CompanionSettings = class extends PluginSettingTab {
   }
   display() {
     this.containerEl.empty();
-    this.containerEl.createEl("h2", { text: "Codex Companion" });
+    this.containerEl.createEl("h2", { text: "Codex Notes Companion" });
     new Setting(this.containerEl).setName("Codex 可执行文件").setDesc("复用本机 Codex 的登录与配置，不需要另填 API Key。").addText((t) => t.setValue(this.p.settings.codexPath).onChange((v) => {
       this.p.settings.codexPath = v.trim();
       this.p.save();
