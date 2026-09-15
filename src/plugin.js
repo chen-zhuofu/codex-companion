@@ -1,5 +1,6 @@
 var { Plugin, ItemView, MarkdownView, MarkdownRenderer, Component, PluginSettingTab, Setting, Notice, FuzzySuggestModal, Modal, setIcon } = require("obsidian");
 var { CodexClient } = require("./client");
+var { noteLink } = require("./note-links");
 var fs = require("node:fs/promises");
 var path = require("node:path");
 var TYPE = "codex-companion-view";
@@ -629,7 +630,18 @@ var CompanionView = class extends ItemView {
     const c = new Component();
     this.addChild(c);
     this.renderChildren.push(c);
-    MarkdownRenderer.render(this.app, text, el, this.plugin.lastFile?.path || "", c).catch(() => el.setText(text));
+    const sourcePath = this.plugin.lastFile?.path || this.app.workspace.getActiveFile()?.path || "";
+    c.registerDomEvent(el, "click", (event) => {
+      const link = event.target?.closest?.("a");
+      if (!link || !el.contains(link)) return;
+      const target = noteLink(link.getAttribute("data-href") || link.getAttribute("href"), this.app.vault.adapter.getBasePath());
+      if (target === null) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.app.workspace.openLinkText(target, sourcePath, event.metaKey || event.ctrlKey)
+        .catch((error) => new Notice(`无法打开笔记：${error.message}`));
+    }, { capture: true });
+    MarkdownRenderer.render(this.app, text, el, sourcePath, c).catch(() => el.setText(text));
   }
   stream(m) {
     let el = this.messageEls.get(m.id);

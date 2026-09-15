@@ -1,6 +1,6 @@
 {
   "name": "codex-companion",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": true,
   "description": "Chat with Codex beside your notes, attach selections and images, and keep progress separate from final replies.",
   "license": "MIT",

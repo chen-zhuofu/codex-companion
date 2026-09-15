@@ -11,6 +11,7 @@ An independent community project, not affiliated with OpenAI or Obsidian. The in
 - Paste images and select installed Codex skills by typing `/`.
 - Choose the models and reasoning levels returned by your local Codex installation.
 - Stream progress inside an expandable execution section, collapsed after completion; keep the final reply prominent.
+- Click vault note links to open the note; hold Cmd/Ctrl to open a new tab. Heading anchors are preserved.
 - View proposed approvals, answer clarification requests, stop generation, and inspect file changes.
 - Leave room for Obsidian's desktop status bar below the composer.
 

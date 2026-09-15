@@ -16,7 +16,7 @@ class CodexClient extends EventEmitter {
     this.proc.stdout.on('data',b=>{buffer+=decoder.write(b); let n; while((n=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,n); buffer=buffer.slice(n+1); try{this.dispatch(JSON.parse(line));}catch(e){this.emit('protocolError',e);}}});
     this.proc.on('error',e=>this.fail(e));
     this.proc.on('exit',(code)=>{this.fail(new Error(`Codex 已断开 (${code ?? '停止'})`));this.proc=null;this.ready=null;});
-    const r=await this.request('initialize',{clientInfo:{name:'obsidian_codex_companion',title:'Codex Notes Companion',version:'0.3.2'},capabilities:{experimentalApi:true}});
+    const r=await this.request('initialize',{clientInfo:{name:'obsidian_codex_companion',title:'Codex Notes Companion',version:'0.3.3'},capabilities:{experimentalApi:true}});
     this.write({method:'initialized',params:{}}); return r;
   }
   dispatch(msg) {

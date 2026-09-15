@@ -54,7 +54,7 @@ var require_client = __commonJS({
           this.proc = null;
           this.ready = null;
         });
-        const r = await this.request("initialize", { clientInfo: { name: "obsidian_codex_companion", title: "Codex Notes Companion", version: "0.3.2" }, capabilities: { experimentalApi: true } });
+        const r = await this.request("initialize", { clientInfo: { name: "obsidian_codex_companion", title: "Codex Notes Companion", version: "0.3.3" }, capabilities: { experimentalApi: true } });
         this.write({ method: "initialized", params: {} });
         return r;
       }
@@ -114,9 +114,44 @@ var require_client = __commonJS({
   }
 });
 
+// src/note-links.js
+var require_note_links = __commonJS({
+  "src/note-links.js"(exports2, module2) {
+    "use strict";
+    var path2 = require("node:path");
+    function noteLink2(href, vaultRoot) {
+      if (!href) return null;
+      let value = href.replace(/^app:\/\/obsidian\.md\//, "/");
+      if (value.startsWith("file://")) {
+        try {
+          value = new URL(value).pathname + new URL(value).hash;
+        } catch {
+          return null;
+        }
+      } else if (/^[a-z][a-z\d+.-]*:/i.test(value) && !/^[a-z]:[\\/]/i.test(value)) {
+        return null;
+      }
+      try {
+        value = decodeURIComponent(value);
+      } catch {
+        return null;
+      }
+      const hash = value.indexOf("#");
+      const filename = hash < 0 ? value : value.slice(0, hash);
+      const anchor = hash < 0 ? "" : value.slice(hash);
+      if (!path2.isAbsolute(filename)) return value;
+      const relative = path2.relative(vaultRoot, filename);
+      if (relative === ".." || relative.startsWith(".." + path2.sep) || path2.isAbsolute(relative)) return null;
+      return relative.split(path2.sep).join("/") + anchor;
+    }
+    module2.exports = { noteLink: noteLink2 };
+  }
+});
+
 // src/plugin.js
 var { Plugin, ItemView, MarkdownView, MarkdownRenderer, Component, PluginSettingTab, Setting, Notice, FuzzySuggestModal, Modal, setIcon } = require("obsidian");
 var { CodexClient } = require_client();
+var { noteLink } = require_note_links();
 var fs = require("node:fs/promises");
 var path = require("node:path");
 var TYPE = "codex-companion-view";
@@ -746,7 +781,17 @@ var CompanionView = class extends ItemView {
     const c = new Component();
     this.addChild(c);
     this.renderChildren.push(c);
-    MarkdownRenderer.render(this.app, text, el, this.plugin.lastFile?.path || "", c).catch(() => el.setText(text));
+    const sourcePath = this.plugin.lastFile?.path || this.app.workspace.getActiveFile()?.path || "";
+    c.registerDomEvent(el, "click", (event) => {
+      const link = event.target?.closest?.("a");
+      if (!link || !el.contains(link)) return;
+      const target = noteLink(link.getAttribute("data-href") || link.getAttribute("href"), this.app.vault.adapter.getBasePath());
+      if (target === null) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.app.workspace.openLinkText(target, sourcePath, event.metaKey || event.ctrlKey).catch((error) => new Notice(`无法打开笔记：${error.message}`));
+    }, { capture: true });
+    MarkdownRenderer.render(this.app, text, el, sourcePath, c).catch(() => el.setText(text));
   }
   stream(m) {
     let el = this.messageEls.get(m.id);
