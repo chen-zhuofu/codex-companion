@@ -15,8 +15,8 @@ class CodexClient extends EventEmitter {
     this.proc.stderr.on('data',b=>{this.stderr=(this.stderr+b.toString()).slice(-3000);});
     this.proc.stdout.on('data',b=>{buffer+=decoder.write(b); let n; while((n=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,n); buffer=buffer.slice(n+1); try{this.dispatch(JSON.parse(line));}catch(e){this.emit('protocolError',e);}}});
     this.proc.on('error',e=>this.fail(e));
-    this.proc.on('exit',(code)=>{this.fail(new Error(`Codex 已断开 (${code ?? '停止'})`));this.proc=null;this.ready=null;});
-    const r=await this.request('initialize',{clientInfo:{name:'obsidian_codex_companion',title:'Codex Notes Companion',version:'0.3.3'},capabilities:{experimentalApi:true}});
+    this.proc.on('exit',(code)=>{this.fail(new Error(`Codex disconnected (${code ?? 'stopped'})`));this.proc=null;this.ready=null;});
+    const r=await this.request('initialize',{clientInfo:{name:'obsidian_codex_companion',title:'Codex Notes Companion',version:'0.3.4'},capabilities:{experimentalApi:true}});
     this.write({method:'initialized',params:{}}); return r;
   }
   dispatch(msg) {
@@ -24,9 +24,9 @@ class CodexClient extends EventEmitter {
     const p=this.pending.get(msg.id); if(!p)return; this.pending.delete(msg.id); clearTimeout(p.timer);
     if(msg.error)p.reject(new Error(msg.error.message||JSON.stringify(msg.error)));else p.resolve(msg.result);
   }
-  write(msg){if(!this.proc?.stdin.writable)throw new Error('Codex 未连接');this.proc.stdin.write(JSON.stringify(msg)+'\n');}
+  write(msg){if(!this.proc?.stdin.writable)throw new Error('Codex is not connected');this.proc.stdin.write(JSON.stringify(msg)+'\n');}
   request(method,params={}){
-    return new Promise((resolve,reject)=>{const id=++this.seq;const timer=setTimeout(()=>{this.pending.delete(id);reject(new Error(`${method} 请求超时，请重试连接`));},60000);this.pending.set(id,{resolve,reject,timer});try{this.write({id,method,params});}catch(e){clearTimeout(timer);this.pending.delete(id);reject(e);}});
+    return new Promise((resolve,reject)=>{const id=++this.seq;const timer=setTimeout(()=>{this.pending.delete(id);reject(new Error(`${method} request timed out. Please reconnect and try again.`));},60000);this.pending.set(id,{resolve,reject,timer});try{this.write({id,method,params});}catch(e){clearTimeout(timer);this.pending.delete(id);reject(e);}});
   }
   respond(id,result){this.write({id,result});}
   unsupported(id){this.write({id,error:{code:-32601,message:'This client does not support this interactive request.'}});}

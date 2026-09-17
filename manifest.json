@@ -1,7 +1,7 @@
 {
   "id": "codex-companion",
   "name": "Codex Notes Companion",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "minAppVersion": "1.13.7",
   "description": "Chat with Codex beside your notes, attach selections and images, and keep progress separate from final replies.",
   "author": "Sean",
