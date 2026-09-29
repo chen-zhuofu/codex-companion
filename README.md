@@ -2,12 +2,20 @@
 
 Chat with Codex beside your Obsidian notes. Attach the current note or selected text, paste images, invoke installed Codex skills, and keep intermediate progress separate from the final answer.
 
+## ⌘L — Bring your notes into the conversation
+
+**Select text → press ⌘L → ask Codex. No copying and pasting.**
+
+Press **Command+L on macOS** (**Ctrl+L on Windows/Linux**) to open or focus the Codex sidebar and attach your selected text. With nothing selected, it attaches the current note instead.
+
+For example, highlight a paragraph, press **⌘L**, and ask: *“Explain this in simpler terms”* or *“Rewrite this more clearly.”* Review the attachment, type your question, and press **Enter** to send.
+
 An independent community project, not affiliated with OpenAI or Obsidian. The plugin interface is in English. Codex replies in the language you use.
 
 ## Features
 
+- **⌘L / Ctrl+L: Attach your selection or current note and focus chat instantly.**
 - Sidebar conversations, saved history, and independent pop-out conversations.
-- Attach a note or selection with `Cmd/Ctrl+L`, or use the attachment button.
 - Paste images and select installed Codex skills by typing `/`.
 - Choose the models and reasoning levels returned by your local Codex installation.
 - Stream progress inside an expandable execution section, collapsed after completion; keep the final reply prominent.
