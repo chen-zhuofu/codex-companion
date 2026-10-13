@@ -54,7 +54,7 @@ var require_client = __commonJS({
           this.proc = null;
           this.ready = null;
         });
-        const r = await this.request("initialize", { clientInfo: { name: "obsidian_codex_companion", title: "Codex Notes Companion", version: "0.3.4" }, capabilities: { experimentalApi: true } });
+        const r = await this.request("initialize", { clientInfo: { name: "obsidian_codex_companion", title: "Codex Notes Companion", version: "0.3.5" }, capabilities: { experimentalApi: true } });
         this.write({ method: "initialized", params: {} });
         return r;
       }
@@ -93,6 +93,18 @@ var require_client = __commonJS({
       }
       respond(id2, result) {
         this.write({ id: id2, result });
+      }
+      async listModels() {
+        const models = /* @__PURE__ */ new Map(), cursors = /* @__PURE__ */ new Set();
+        let cursor = null;
+        do {
+          const page = await this.request("model/list", cursor ? { cursor } : {});
+          for (const model of page.data) if (!model.hidden) models.set(model.model, model);
+          cursor = page.nextCursor;
+          if (cursor && cursors.has(cursor)) throw new Error("Codex returned a repeated model-list cursor. Please update Codex and try again.");
+          cursors.add(cursor);
+        } while (cursor);
+        return [...models.values()];
       }
       unsupported(id2) {
         this.write({ id: id2, error: { code: -32601, message: "This client does not support this interactive request." } });
@@ -237,6 +249,7 @@ var Companion = class extends Plugin {
     this.addCommand({ id: "focus-chat", name: "Focus chat / attach selection", hotkeys: [{ modifiers: ["Mod"], key: "l" }], callback: () => this.open(true) });
     this.addCommand({ id: "new-chat", name: "New chat", callback: () => this.openNew() });
     this.addCommand({ id: "new-window", name: "New chat in a separate window", callback: () => this.openNew(true) });
+    this.addCommand({ id: "refresh-models", name: "Refresh models", callback: () => this.refreshModelsNow() });
     this.addSettingTab(new CompanionSettings(this.app, this));
     this.registerEvent(this.app.workspace.on("file-open", (f) => {
       if (f?.extension === "md") this.lastFile = f;
@@ -247,6 +260,8 @@ var Companion = class extends Plugin {
     }));
   }
   onunload() {
+    this.unloaded = true;
+    this.catalogClient?.close();
     for (const r of this.runtimes.values()) {
       for (const m of r.modals) m.close();
       r.client?.close();
@@ -282,6 +297,7 @@ var Companion = class extends Plugin {
   runtime(sessionId) {
     if (!this.runtimes.has(sessionId)) {
       const r = Object.create(this);
+      r.modelOwner = this;
       r.busy = false;
       r.client = null;
       r.resumed = /* @__PURE__ */ new Set();
@@ -331,22 +347,26 @@ var Companion = class extends Plugin {
     this.connect().catch((e) => this.showError(e));
   }
   async connect() {
-    if (this.client?.ready) return this.client.start();
-    this.client = new CodexClient(this.settings.codexPath, this.app.vault.adapter.getBasePath());
+    const owner = this.modelOwner || this;
+    if (this.client?.ready && this.client.executable === this.settings.codexPath) {
+      await this.client.start();
+      await owner.refreshModelsForChat();
+      return;
+    }
+    this.client?.close();
+    this.resumed.clear();
+    const client = this.client = new CodexClient(this.settings.codexPath, this.app.vault.adapter.getBasePath());
     this.client.on("notification", (m) => this.notify(m));
     this.client.on("request", (m) => this.handleRequest(m));
     this.client.on("disconnect", (e) => {
+      if (this.client !== client) return;
       this.resumed.clear();
       if (this.busy) this.finish("Disconnected. Please reconnect and try again.");
       this.status = e.message;
       this.refresh();
     });
     await this.client.start();
-    const list = await this.client.request("model/list", {});
-    this.models = list.data.filter((m) => !m.hidden);
-    if (!this.settings.model && this.models.length) {
-      this.settings.model = (this.models.find((m) => m.isDefault) || this.models[0]).model;
-    }
+    await owner.refreshModelsForChat();
     try {
       const result = await this.client.request("skills/list", { cwds: [this.app.vault.adapter.getBasePath()] });
       this.skills = result.data.flatMap((e) => e.skills).filter((s) => s.enabled);
@@ -355,6 +375,60 @@ var Companion = class extends Plugin {
     }
     this.status = "Connected to Codex";
     this.refresh();
+  }
+  async refreshModels(force = false) {
+    if (this.modelsRefresh) {
+      const pendingExecutable = this.catalogClient?.executable;
+      try {
+        await this.modelsRefresh;
+      } catch (e) {
+        if (pendingExecutable === this.settings.codexPath) throw e;
+      }
+      if (pendingExecutable === this.settings.codexPath) return;
+      return this.refreshModels(force);
+    }
+    const executable = this.settings.codexPath;
+    if (!force && this.models.length && this.modelsExecutable === executable && Date.now() - this.modelsRefreshedAt < 5 * 60 * 1e3) return;
+    const client = this.catalogClient = new CodexClient(executable, this.app.vault.adapter.getBasePath());
+    this.modelsRefresh = (async () => {
+      try {
+        await client.start();
+        const models = await client.listModels();
+        if (this.unloaded || executable !== this.settings.codexPath) return;
+        if (!models.length) throw new Error("Codex returned no visible models. Check your Codex installation and sign-in.");
+        this.models = models;
+        this.modelsExecutable = executable;
+        this.modelsRefreshedAt = Date.now();
+        if (!this.settings.model) {
+          this.settings.model = (models.find((m) => m.isDefault) || models[0]).model;
+          await this.save();
+        }
+        for (const view of this.views()) view.updateSelectors();
+      } finally {
+        client.close();
+        this.catalogClient = null;
+      }
+    })();
+    try {
+      await this.modelsRefresh;
+    } finally {
+      this.modelsRefresh = null;
+    }
+  }
+  async refreshModelsForChat() {
+    try {
+      await this.refreshModels();
+    } catch (e) {
+      if (!this.models.length || this.modelsExecutable !== this.settings.codexPath) throw e;
+    }
+  }
+  async refreshModelsNow() {
+    try {
+      await this.refreshModels(true);
+      new Notice("Models refreshed from Codex. If a model is missing, update the configured Codex executable and refresh again.");
+    } catch (e) {
+      new Notice("Could not refresh models: " + e.message, 8e3);
+    }
   }
   showError(e) {
     this.status = e.message;
@@ -611,7 +685,12 @@ var CompanionView = class extends ItemView {
     });
     this.input.addEventListener("paste", (e) => this.pasteImages(e));
     const controls = this.composer.createDiv({ cls: "cc-controls" });
+    icon(controls, "refresh-cw", "Refresh models", () => this.plugin.refreshModelsNow());
     this.model = controls.createEl("select", { cls: "cc-model", attr: { "aria-label": "Model" } });
+    this.registerDomEvent(this.contentEl.ownerDocument.defaultView, "focus", () => {
+      this.plugin.refreshModels().catch(() => {
+      });
+    });
     this.model.onchange = () => {
       this.plugin.settings.model = this.model.value;
       this.plugin.settings.effort = "medium";
@@ -969,10 +1048,11 @@ var CompanionSettings = class extends PluginSettingTab {
   display() {
     this.containerEl.empty();
     this.containerEl.createEl("h2", { text: "Codex Notes Companion" });
-    new Setting(this.containerEl).setName("Codex executable").setDesc("Uses your local Codex authentication and configuration. No separate API key is needed.").addText((t) => t.setValue(this.p.settings.codexPath).onChange((v) => {
+    new Setting(this.containerEl).setName("Codex executable").setDesc("Use an up-to-date Codex CLI. Its model catalog supplies the model picker. Uses your local sign-in; no separate API key is needed.").addText((t) => t.setValue(this.p.settings.codexPath).onChange((v) => {
       this.p.settings.codexPath = v.trim();
       this.p.save();
     }));
+    new Setting(this.containerEl).setName("Available models").setDesc("Refresh the model list without interrupting conversations. New models require a current Codex installation and account access.").addButton((b) => b.setButtonText("Refresh models").onClick(() => this.p.refreshModelsNow()));
     new Setting(this.containerEl).setName("Reconnect").addButton((b) => b.setButtonText("Connect to Codex").onClick(async () => {
       if (this.p.busy) return;
       this.p.client?.close();

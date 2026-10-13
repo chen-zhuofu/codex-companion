@@ -16,7 +16,7 @@ class CodexClient extends EventEmitter {
     this.proc.stdout.on('data',b=>{buffer+=decoder.write(b); let n; while((n=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,n); buffer=buffer.slice(n+1); try{this.dispatch(JSON.parse(line));}catch(e){this.emit('protocolError',e);}}});
     this.proc.on('error',e=>this.fail(e));
     this.proc.on('exit',(code)=>{this.fail(new Error(`Codex disconnected (${code ?? 'stopped'})`));this.proc=null;this.ready=null;});
-    const r=await this.request('initialize',{clientInfo:{name:'obsidian_codex_companion',title:'Codex Notes Companion',version:'0.3.4'},capabilities:{experimentalApi:true}});
+    const r=await this.request('initialize',{clientInfo:{name:'obsidian_codex_companion',title:'Codex Notes Companion',version:'0.3.5'},capabilities:{experimentalApi:true}});
     this.write({method:'initialized',params:{}}); return r;
   }
   dispatch(msg) {
@@ -29,6 +29,17 @@ class CodexClient extends EventEmitter {
     return new Promise((resolve,reject)=>{const id=++this.seq;const timer=setTimeout(()=>{this.pending.delete(id);reject(new Error(`${method} request timed out. Please reconnect and try again.`));},60000);this.pending.set(id,{resolve,reject,timer});try{this.write({id,method,params});}catch(e){clearTimeout(timer);this.pending.delete(id);reject(e);}});
   }
   respond(id,result){this.write({id,result});}
+  async listModels() {
+    const models=new Map(), cursors=new Set(); let cursor=null;
+    do {
+      const page=await this.request('model/list',cursor ? {cursor} : {});
+      for(const model of page.data) if(!model.hidden) models.set(model.model,model);
+      cursor=page.nextCursor;
+      if(cursor && cursors.has(cursor)) throw new Error('Codex returned a repeated model-list cursor. Please update Codex and try again.');
+      cursors.add(cursor);
+    } while(cursor);
+    return [...models.values()];
+  }
   unsupported(id){this.write({id,error:{code:-32601,message:'This client does not support this interactive request.'}});}
   fail(e){for(const p of this.pending.values()){clearTimeout(p.timer);p.reject(e);}this.pending.clear();this.emit('disconnect',e);}
   close(){this.ready=null;this.proc?.kill('SIGTERM');}

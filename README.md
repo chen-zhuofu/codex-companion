@@ -17,7 +17,7 @@ An independent community project, not affiliated with OpenAI or Obsidian. The pl
 - **⌘L / Ctrl+L: Attach your selection or current note and focus chat instantly.**
 - Sidebar conversations, saved history, and independent pop-out conversations.
 - Paste images and select installed Codex skills by typing `/`.
-- Choose the models and reasoning levels returned by your local Codex installation.
+- Choose models and reasoning levels supplied by your local Codex installation, with automatic refresh and a **Refresh models** button. No model names are hardcoded.
 - Stream progress inside an expandable execution section, collapsed after completion; keep the final reply prominent.
 - Click vault note links to open the note; hold Cmd/Ctrl to open a new tab. Heading anchors are preserved.
 - View proposed approvals, answer clarification requests, stop generation, and inspect file changes.
@@ -46,6 +46,12 @@ To install manually:
 ## Use
 
 Type a prompt and press Enter to send; Shift+Enter inserts a newline. The square stop button or Escape interrupts a running response. Removing an attachment chip removes it from the next prompt.
+
+### Keeping the model list current
+
+Click the **Refresh models** icon beside the model selector, use the **Codex Notes Companion: Refresh models** command, or select **Refresh models** in plugin settings. Refreshing checks all pages of the catalog through a fresh Codex process without interrupting conversations. The list is also checked when opening a chat or returning to an Obsidian window, at most once every five minutes after a successful refresh.
+
+Models come from the executable configured under **Codex executable**. If a recently released model is missing, update that Codex installation or point the setting at your current CLI, then refresh. An older CLI bundled with another application can return an older model catalog even after refreshing. Available entries depend on Codex and your account; the plugin does not add model names itself or verify access by making a generation request. Your selected model is preserved when the list changes.
 
 Progress messages are identified using Codex's `commentary` phase. Final answers remain ordinary replies. Older messages without phase metadata are preserved; continuing an existing conversation backfills metadata when the Codex server provides it.
 
